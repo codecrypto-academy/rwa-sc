@@ -2,8 +2,8 @@
 pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
-import {Token} from "../src/Token.sol";
-import {Identity} from "../src/Identity.sol";
+import {TokenCloneable} from "../src/TokenCloneable.sol";
+import {IdentityCloneable} from "../src/IdentityCloneable.sol";
 import {IdentityRegistry} from "../src/IdentityRegistry.sol";
 import {TrustedIssuersRegistry} from "../src/TrustedIssuersRegistry.sol";
 import {ClaimTopicsRegistry} from "../src/ClaimTopicsRegistry.sol";
@@ -12,7 +12,7 @@ import {MaxHoldersCompliance} from "../src/compliance/MaxHoldersCompliance.sol";
 import {TransferLockCompliance} from "../src/compliance/TransferLockCompliance.sol";
 
 contract TokenTest is Test {
-    Token public token;
+    TokenCloneable public token;
     IdentityRegistry public identityRegistry;
     TrustedIssuersRegistry public trustedIssuersRegistry;
     ClaimTopicsRegistry public claimTopicsRegistry;
@@ -27,9 +27,9 @@ contract TokenTest is Test {
     address public user2;
     address public user3;
 
-    Identity public identity1;
-    Identity public identity2;
-    Identity public identity3;
+    IdentityCloneable public identity1;
+    IdentityCloneable public identity2;
+    IdentityCloneable public identity3;
 
     uint256 constant KYC_TOPIC = 1;
     uint256 constant AML_TOPIC = 2;
@@ -48,7 +48,8 @@ contract TokenTest is Test {
         user3 = makeAddr("user3");
 
         // Deploy token
-        token = new Token("Security Token", "SEC", 18, admin);
+        token = new TokenCloneable();
+        token.initialize("Security Token", "SEC", 18, admin);
 
         // Deploy registries
         identityRegistry = new IdentityRegistry(admin);
@@ -84,9 +85,12 @@ contract TokenTest is Test {
         claimTopicsRegistry.addClaimTopic(AML_TOPIC);
 
         // Create identities for users
-        identity1 = new Identity(admin);
-        identity2 = new Identity(admin);
-        identity3 = new Identity(admin);
+        identity1 = new IdentityCloneable();
+        identity1.initialize(admin);
+        identity2 = new IdentityCloneable();
+        identity2.initialize(admin);
+        identity3 = new IdentityCloneable();
+        identity3.initialize(admin);
 
         // Register identities
         identityRegistry.registerIdentity(user1, address(identity1));
@@ -99,7 +103,7 @@ contract TokenTest is Test {
         _addClaims(identity3);
     }
 
-    function _addClaims(Identity identity) internal {
+    function _addClaims(IdentityCloneable identity) internal {
         identity.addClaim(KYC_TOPIC, 1, issuer, "", "", "");
         identity.addClaim(AML_TOPIC, 1, issuer, "", "", "");
     }
@@ -114,7 +118,8 @@ contract TokenTest is Test {
     }
 
     function test_SetRegistries() public {
-        Token newToken = new Token("Test", "TST", 18, admin);
+        TokenCloneable newToken = new TokenCloneable();
+        newToken.initialize("Test", "TST", 18, admin);
 
         newToken.setIdentityRegistry(address(identityRegistry));
         newToken.setTrustedIssuersRegistry(address(trustedIssuersRegistry));
@@ -141,7 +146,8 @@ contract TokenTest is Test {
     }
 
     function test_AddComplianceModule() public {
-        Token newToken = new Token("Test", "TST", 18, admin);
+        TokenCloneable newToken = new TokenCloneable();
+        newToken.initialize("Test", "TST", 18, admin);
         MaxBalanceCompliance compliance = new MaxBalanceCompliance(admin, MAX_BALANCE);
 
         newToken.addComplianceModule(address(compliance));
@@ -175,7 +181,8 @@ contract TokenTest is Test {
     function test_IsVerified_FailsWhenMissingClaim() public {
         // Create user without all required claims
         address user4 = makeAddr("user4");
-        Identity identity4 = new Identity(admin);
+        IdentityCloneable identity4 = new IdentityCloneable();
+        identity4.initialize(admin);
         identityRegistry.registerIdentity(user4, address(identity4));
 
         // Add only KYC claim, missing AML

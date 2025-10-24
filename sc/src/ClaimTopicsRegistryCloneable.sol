@@ -1,26 +1,33 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {IClaimTopicsRegistry} from "./IClaimTopicsRegistry.sol";
 
 /**
- * @title ClaimTopicsRegistry
- * @dev Registry of required claim topics for token holders
- * Defines which claims are needed for compliance
- * 
- * NOTE: This is a non-upgradeable version primarily used for testing.
- * For production deployments with gas optimization, use ClaimTopicsRegistryCloneable
- * with ClaimTopicsRegistryCloneFactory instead.
+ * @title ClaimTopicsRegistryCloneable
+ * @dev Registry of required claim topics that can be cloned using EIP-1167 minimal proxy pattern
+ * Uses Initializable pattern instead of constructor for clone compatibility
  */
-contract ClaimTopicsRegistry is Ownable, IClaimTopicsRegistry {
+contract ClaimTopicsRegistryCloneable is OwnableUpgradeable, IClaimTopicsRegistry {
     // Array of required claim topics
     uint256[] private claimTopics;
 
     event ClaimTopicAdded(uint256 indexed claimTopic);
     event ClaimTopicRemoved(uint256 indexed claimTopic);
 
-    constructor(address initialOwner) Ownable(initialOwner) {}
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /**
+     * @dev Initialize the registry (replaces constructor for clones)
+     * @param initialOwner Owner of this registry
+     */
+    function initialize(address initialOwner) external initializer {
+        __Ownable_init(initialOwner);
+    }
 
     /**
      * @dev Add a required claim topic
@@ -79,3 +86,4 @@ contract ClaimTopicsRegistry is Ownable, IClaimTopicsRegistry {
         return claimTopics.length;
     }
 }
+

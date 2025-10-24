@@ -6,7 +6,7 @@ import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/acce
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {IdentityRegistry} from "./IdentityRegistry.sol";
 import {TrustedIssuersRegistry} from "./TrustedIssuersRegistry.sol";
-import {ClaimTopicsRegistry} from "./ClaimTopicsRegistry.sol";
+import {IClaimTopicsRegistry} from "./IClaimTopicsRegistry.sol";
 import {ICompliance} from "./ICompliance.sol";
 import {ComplianceAggregator} from "./compliance/ComplianceAggregator.sol";
 
@@ -22,7 +22,7 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
     // Registry contracts
     IdentityRegistry public identityRegistry;
     TrustedIssuersRegistry public trustedIssuersRegistry;
-    ClaimTopicsRegistry public claimTopicsRegistry;
+    IClaimTopicsRegistry public claimTopicsRegistry;
 
     // Compliance modules
     ICompliance[] public complianceModules;
@@ -109,7 +109,7 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
      */
     function setClaimTopicsRegistry(address registry) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(registry != address(0), "Invalid registry address");
-        claimTopicsRegistry = ClaimTopicsRegistry(registry);
+        claimTopicsRegistry = IClaimTopicsRegistry(registry);
         emit ClaimTopicsRegistrySet(registry);
     }
 

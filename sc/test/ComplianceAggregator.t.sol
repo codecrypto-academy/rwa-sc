@@ -6,8 +6,8 @@ import {ComplianceAggregator} from "../src/compliance/ComplianceAggregator.sol";
 import {MaxBalanceCompliance} from "../src/compliance/MaxBalanceCompliance.sol";
 import {MaxHoldersCompliance} from "../src/compliance/MaxHoldersCompliance.sol";
 import {TransferLockCompliance} from "../src/compliance/TransferLockCompliance.sol";
-import {Token} from "../src/Token.sol";
-import {Identity} from "../src/Identity.sol";
+import {TokenCloneable} from "../src/TokenCloneable.sol";
+import {IdentityCloneable} from "../src/IdentityCloneable.sol";
 import {IdentityRegistry} from "../src/IdentityRegistry.sol";
 import {TrustedIssuersRegistry} from "../src/TrustedIssuersRegistry.sol";
 import {ClaimTopicsRegistry} from "../src/ClaimTopicsRegistry.sol";
@@ -18,8 +18,8 @@ contract ComplianceAggregatorTest is Test {
     MaxHoldersCompliance public maxHoldersModule;
     TransferLockCompliance public transferLockModule;
     
-    Token public token1;
-    Token public token2;
+    TokenCloneable public token1;
+    TokenCloneable public token2;
     
     IdentityRegistry public identityRegistry;
     TrustedIssuersRegistry public trustedIssuersRegistry;
@@ -68,8 +68,10 @@ contract ComplianceAggregatorTest is Test {
         
         // Deploy tokens
         vm.startPrank(owner);
-        token1 = new Token("Token 1", "TK1", 18, owner);
-        token2 = new Token("Token 2", "TK2", 18, owner);
+        token1 = new TokenCloneable();
+        token1.initialize("Token 1", "TK1", 18, owner);
+        token2 = new TokenCloneable();
+        token2.initialize("Token 2", "TK2", 18, owner);
         
         // Set registries for tokens
         token1.setIdentityRegistry(address(identityRegistry));
@@ -84,7 +86,8 @@ contract ComplianceAggregatorTest is Test {
 
     function _registerIdentity(address user) internal {
         vm.startPrank(owner);
-        Identity identity = new Identity(user);
+        IdentityCloneable identity = new IdentityCloneable();
+        identity.initialize(user);
         vm.stopPrank();
         
         vm.prank(user);

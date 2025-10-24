@@ -45,15 +45,7 @@ Este proyecto es un **sistema completo de tokenización de RWA** (Real World Ass
 
 ### Documentación del Proyecto (Fuera de sc/)
 
-```
-📁 En la raíz del proyecto (../):
-  - README.md (proyecto completo)
-  - CHANGELOG.md (historial de versiones)
-  - RESUMEN_EJECUTIVO_FINAL.md (resumen ejecutivo)
-  - SESSION_FINAL_SUMMARY.md (resumen de desarrollo)
-  - CLEANUP_REPORT.md (archivos eliminados)
-  - Otros documentos técnicos...
-```
+
 
 ---
 

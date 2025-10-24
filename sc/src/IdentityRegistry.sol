@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Identity} from "./Identity.sol";
+import {IdentityCloneable} from "./IdentityCloneable.sol";
 
 /**
  * @title IdentityRegistry
@@ -11,7 +11,7 @@ import {Identity} from "./Identity.sol";
  */
 contract IdentityRegistry is Ownable {
     // Mapping from wallet address to identity contract
-    mapping(address => Identity) private identities;
+    mapping(address => IdentityCloneable) private identities;
 
     // Mapping to track registered addresses
     mapping(address => bool) private registered;
@@ -35,7 +35,7 @@ contract IdentityRegistry is Ownable {
         require(_identity != address(0), "Invalid identity address");
         require(!registered[_wallet], "Wallet already registered");
 
-        identities[_wallet] = Identity(_identity);
+        identities[_wallet] = IdentityCloneable(_identity);
         registered[_wallet] = true;
         registeredAddresses.push(_wallet);
 
@@ -53,7 +53,7 @@ contract IdentityRegistry is Ownable {
         require(registered[_wallet], "Wallet not registered");
 
         address oldIdentity = address(identities[_wallet]);
-        identities[_wallet] = Identity(_identity);
+        identities[_wallet] = IdentityCloneable(_identity);
 
         emit IdentityUpdated(_wallet, oldIdentity, _identity);
     }
