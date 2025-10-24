@@ -251,18 +251,20 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
         for (uint256 i = 0; i < requiredTopics.length; i++) {
             bool hasValidClaim = false;
 
-            // Check if there's a valid claim from a trusted issuer
-            if (address(trustedIssuersRegistry) != address(0)) {
-                address[] memory trustedIssuers = trustedIssuersRegistry.getTrustedIssuers();
+            // OPTIMIZED: Get issuers that have claims for this topic in the identity
+            // Instead of iterating through ALL trusted issuers
+            (bool success, bytes memory data) = identityAddress.staticcall(
+                abi.encodeWithSignature("getClaimIssuersForTopic(uint256)", requiredTopics[i])
+            );
 
-                for (uint256 j = 0; j < trustedIssuers.length; j++) {
-                    if (trustedIssuersRegistry.hasClaimTopic(trustedIssuers[j], requiredTopics[i])) {
-                        // Check if claim exists
-                        (bool success, bytes memory data) = identityAddress.staticcall(
-                            abi.encodeWithSignature("claimExists(uint256,address)", requiredTopics[i], trustedIssuers[j])
-                        );
+            if (success && data.length > 0) {
+                address[] memory claimIssuers = abi.decode(data, (address[]));
 
-                        if (success && abi.decode(data, (bool))) {
+                // Now check if ANY of these issuers is trusted and can issue this topic
+                for (uint256 j = 0; j < claimIssuers.length; j++) {
+                    if (address(trustedIssuersRegistry) != address(0)) {
+                        // Verify this issuer is trusted AND can issue this specific topic
+                        if (trustedIssuersRegistry.hasClaimTopic(claimIssuers[j], requiredTopics[i])) {
                             hasValidClaim = true;
                             break;
                         }

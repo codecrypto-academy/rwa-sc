@@ -11,6 +11,12 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 contract IdentityCloneable is OwnableUpgradeable {
     // Mapping of claim topic => issuer => claim data
     mapping(uint256 => mapping(address => Claim)) private claims;
+    
+    // Mapping to track which issuers have claims for each topic
+    mapping(uint256 => address[]) private topicIssuers;
+    
+    // Mapping to check if an issuer is in the array (to avoid duplicates)
+    mapping(uint256 => mapping(address => bool)) private topicIssuerExists;
 
     struct Claim {
         uint256 topic;
@@ -70,6 +76,12 @@ contract IdentityCloneable is OwnableUpgradeable {
             data: _data,
             uri: _uri
         });
+        
+        // Track this issuer for this topic
+        if (!topicIssuerExists[_topic][_issuer]) {
+            topicIssuers[_topic].push(_issuer);
+            topicIssuerExists[_topic][_issuer] = true;
+        }
 
         emit ClaimAdded(_topic, _scheme, _issuer, _signature, _data, _uri);
 
@@ -92,6 +104,20 @@ contract IdentityCloneable is OwnableUpgradeable {
      */
     function removeClaim(uint256 _topic, address _issuer) external onlyOwner returns (bool) {
         delete claims[_topic][_issuer];
+        
+        // Remove issuer from tracking array
+        if (topicIssuerExists[_topic][_issuer]) {
+            address[] storage issuers = topicIssuers[_topic];
+            for (uint256 i = 0; i < issuers.length; i++) {
+                if (issuers[i] == _issuer) {
+                    issuers[i] = issuers[issuers.length - 1];
+                    issuers.pop();
+                    break;
+                }
+            }
+            topicIssuerExists[_topic][_issuer] = false;
+        }
+        
         emit ClaimRemoved(_topic, _issuer);
         return true;
     }
@@ -124,5 +150,14 @@ contract IdentityCloneable is OwnableUpgradeable {
      */
     function claimExists(uint256 _topic, address _issuer) external view returns (bool) {
         return claims[_topic][_issuer].issuer != address(0);
+    }
+    
+    /**
+     * @dev Get all issuers that have issued claims for a specific topic
+     * @param _topic Claim topic
+     * @return Array of issuer addresses
+     */
+    function getClaimIssuersForTopic(uint256 _topic) external view returns (address[] memory) {
+        return topicIssuers[_topic];
     }
 }
