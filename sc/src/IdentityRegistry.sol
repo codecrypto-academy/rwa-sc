@@ -2,16 +2,16 @@
 pragma solidity ^0.8.20;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {IdentityCloneable} from "./IdentityCloneable.sol";
 
 /**
  * @title IdentityRegistry
  * @dev Registry that manages investor identities
  * Links wallet addresses to their identity contracts
+ * Works with both Identity and IdentityCloneable contracts
  */
 contract IdentityRegistry is Ownable {
-    // Mapping from wallet address to identity contract
-    mapping(address => IdentityCloneable) private identities;
+    // Mapping from wallet address to identity contract address
+    mapping(address => address) private identities;
 
     // Mapping to track registered addresses
     mapping(address => bool) private registered;
@@ -30,12 +30,12 @@ contract IdentityRegistry is Ownable {
      * @param _wallet Wallet address
      * @param _identity Identity contract address
      */
-    function registerIdentity(address _wallet, address _identity) external onlyOwner {
+    function registerIdentity(address _wallet, address _identity) external  {
         require(_wallet != address(0), "Invalid wallet address");
         require(_identity != address(0), "Invalid identity address");
         require(!registered[_wallet], "Wallet already registered");
 
-        identities[_wallet] = IdentityCloneable(_identity);
+        identities[_wallet] = _identity;
         registered[_wallet] = true;
         registeredAddresses.push(_wallet);
 
@@ -52,8 +52,8 @@ contract IdentityRegistry is Ownable {
         require(_identity != address(0), "Invalid identity address");
         require(registered[_wallet], "Wallet not registered");
 
-        address oldIdentity = address(identities[_wallet]);
-        identities[_wallet] = IdentityCloneable(_identity);
+        address oldIdentity = identities[_wallet];
+        identities[_wallet] = _identity;
 
         emit IdentityUpdated(_wallet, oldIdentity, _identity);
     }
@@ -65,7 +65,7 @@ contract IdentityRegistry is Ownable {
     function removeIdentity(address _wallet) external onlyOwner {
         require(registered[_wallet], "Wallet not registered");
 
-        address identityAddress = address(identities[_wallet]);
+        address identityAddress = identities[_wallet];
         delete identities[_wallet];
         registered[_wallet] = false;
 
@@ -86,7 +86,7 @@ contract IdentityRegistry is Ownable {
      * @param _wallet Wallet address
      */
     function getIdentity(address _wallet) external view returns (address) {
-        return address(identities[_wallet]);
+        return identities[_wallet];
     }
 
     /**

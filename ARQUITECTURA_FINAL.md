@@ -24,16 +24,13 @@ Este sistema implementa el estándar **ERC-3643** para tokens de activos del mun
 - **`IdentityRegistry.sol`** - Registro que vincula wallets → identities (compartido)
 - **Ahorro**: ~755k gas por identidad (después de la primera)
 
-### 3. Sistema de ClaimTopics ⭐ NUEVO
+### 3. Sistema de ClaimTopics
 
-#### Producción (con Factory)
 - **`IClaimTopicsRegistry.sol`** - Interface (usado por Token)
-- **`ClaimTopicsRegistryCloneable.sol`** - Registry cloneable que implementa la interface
-- **`ClaimTopicsRegistryCloneFactory.sol`** - Factory para crear clones
-- **Ahorro**: ~350k gas por registry (después del primero)
+- **`ClaimTopicsRegistry.sol`** - Registry estándar que implementa la interface
+- **Uso**: Un registry por token (se crea uno por cada token)
 
-#### Testing
-- **`ClaimTopicsRegistry.sol`** - Versión no-upgradeable para tests ⚠️ SOLO PARA TESTING
+**Nota**: No usamos patrón de clonación para este contrato porque solo se crea uno por token y no es tan costoso.
 
 ### 4. Registros Compartidos
 
@@ -55,7 +52,6 @@ Estos pueden ser compartidos o específicos por token:
 // ===== PASO 1: Deploy Factories (una vez) =====
 TokenCloneFactory tokenFactory = new TokenCloneFactory(admin);
 IdentityCloneFactory identityFactory = new IdentityCloneFactory(admin);
-ClaimTopicsRegistryCloneFactory claimTopicsFactory = new ClaimTopicsRegistryCloneFactory(admin);
 
 // ===== PASO 2: Deploy Registros Compartidos (una vez) =====
 IdentityRegistry identityRegistry = new IdentityRegistry(admin);
@@ -68,12 +64,10 @@ trustedIssuersRegistry.addTrustedIssuer(issuerAddress, topics);
 // ===== PASO 3: Por cada Token =====
 
 // 3.1 Crear ClaimTopicsRegistry específico para este token
-uint256[] memory tokenTopics = [1, 2, 3]; // Requisitos específicos
-address claimTopicsRegistry = claimTopicsFactory.createRegistryForTokenWithTopics(
-    admin,
-    tokenAddress,
-    tokenTopics
-);
+ClaimTopicsRegistry claimTopicsRegistry = new ClaimTopicsRegistry(admin);
+claimTopicsRegistry.addClaimTopic(1); // KYC
+claimTopicsRegistry.addClaimTopic(2); // AML
+claimTopicsRegistry.addClaimTopic(3); // Accredited
 
 // 3.2 Crear el Token con todos los registros configurados
 address token = tokenFactory.createTokenWithRegistries(
@@ -83,7 +77,7 @@ address token = tokenFactory.createTokenWithRegistries(
     admin,
     address(identityRegistry),          // Compartido
     address(trustedIssuersRegistry),    // Compartido
-    claimTopicsRegistry                 // Específico del token
+    address(claimTopicsRegistry)        // Específico del token
 );
 
 // 3.3 Agregar módulos de compliance (opcional)
@@ -121,32 +115,38 @@ identityRegistry.registerIdentity(investorAddress, identity);
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     FACTORIES (Deploy 1x)                        │
-├──────────────────┬──────────────────┬─────────────────────────────┤
-│ TokenClone       │ IdentityClone    │ ClaimTopicsRegistry        │
-│ Factory          │ Factory          │ CloneFactory               │
-└────────┬─────────┴────────┬─────────┴────────┬──────────────────┘
-         │                  │                  │
-         │ crea (gas bajo)  │ crea (gas bajo)  │ crea (gas bajo)
-         ▼                  ▼                  ▼
-┌──────────────────┐ ┌─────────────────┐ ┌──────────────────────┐
-│ TokenCloneable   │ │IdentityCloneable│ │ClaimTopicsRegistry   │
-│ Instance 1       │ │ Instance 1      │ │ Cloneable Instance 1 │
-│ (Token A)        │ │ (Investor 1)    │ │ (Para Token A)       │
-└────────┬─────────┘ └────────┬────────┘ └────────┬─────────────┘
-         │                    │                   │
-         │ consulta           │ registra          │ consulta
-         │ identidad          │ en                │ requisitos
-         ▼                    ▼                   ▼
+├──────────────────────────────┬──────────────────────────────────┤
+│ TokenCloneFactory            │ IdentityCloneFactory             │
+└────────┬─────────────────────┴────────┬─────────────────────────┘
+         │                               │
+         │ crea (gas bajo)               │ crea (gas bajo)
+         ▼                               ▼
+┌──────────────────┐          ┌─────────────────────┐
+│ TokenCloneable   │          │ IdentityCloneable   │
+│ Instance         │          │ Instance (optimized)│
+│ (Token A)        │          │ (Investor 1)        │
+└────────┬─────────┘          └────────┬────────────┘
+         │                              │
+         │ consulta identidad           │ registra en
+         │ consulta requisitos          │
+         ▼                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│              SHARED INFRASTRUCTURE (Deploy 1x)                   │
-├──────────────────┬──────────────────┬───────────────────────────┤
-│ IdentityRegistry │ TrustedIssuers   │ Compliance Modules        │
-│                  │ Registry         │ (MaxBalance, MaxHolders,  │
-│ Vincula:         │                  │  TransferLock, etc.)      │
-│ Wallet→Identity  │ Define:          │                           │
-│                  │ Quién puede      │ Reglas de negocio         │
-│                  │ emitir claims    │                           │
-└──────────────────┴──────────────────┴───────────────────────────┘
+│              INFRASTRUCTURE (Deploy según necesidad)             │
+├──────────────────┬──────────────────┬──────────────────────────┤
+│ IdentityRegistry │ TrustedIssuers   │ ClaimTopicsRegistry      │
+│ (Compartido)     │ Registry         │ (1 por token)            │
+│                  │ (Compartido)     │                          │
+│ Vincula:         │ Define:          │ Define:                  │
+│ Wallet→Identity  │ Quién puede      │ Qué claims requiere      │
+│                  │ emitir claims    │ ESTE token               │
+└──────────────────┴──────────────────┴──────────────────────────┘
+                                       │
+                         ┌─────────────┴──────────────┐
+                         ▼                            ▼
+                   ┌──────────────┐         ┌──────────────┐
+                   │ Compliance   │         │ Compliance   │
+                   │ Modules      │         │ Aggregator   │
+                   └──────────────┘         └──────────────┘
 ```
 
 ## 🎨 Patrones de Diseño Utilizados
@@ -187,9 +187,9 @@ identityRegistry.registerIdentity(investorAddress, identity);
 | **Subsecuentes** | | | |
 | Token | 3M gas | 50k gas | **2.95M (98%)** |
 | Identity | 800k gas | 45k gas | **755k (94%)** |
-| ClaimTopics | 400k gas | 50k gas | **350k (88%)** |
+| ClaimTopics | 400k gas | 400k gas | 0 (no cloneable) |
 | **10 Tokens + 20 Identities + 10 Registries** | | | |
-| Total | 39M gas | 2.35M gas | **36.65M (94%)** |
+| Total | 43M gas | 5.9M gas | **37.1M (86%)** |
 
 ## 🔐 Modelo de Seguridad
 
